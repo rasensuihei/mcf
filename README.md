@@ -22,4 +22,5 @@ The main features of this mode are Minecraft mcfunction syntax highlighting and 
 * C-c C-r mcfunction-start-server
 
 ## TODO
+* Connect to server with RCON, not IPC.
 * Scanning syntax from the server's help results, It's to use for highlighting and completion.
