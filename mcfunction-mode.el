@@ -1,10 +1,10 @@
-;;; mcfunction-mode.el --- Major mode for editing Minecraft mcfunction.
+;;; mcfunction-mode.el --- Major mode for editing Minecraft mcfunction -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2019 rasensuihei
 
 ;; Author: rasensuihei <rasensuihei@gmail.com>
 ;; URL: https://github.com/rasensuihei/mcfunction-mode
-;; Version: 0.1
+;; Version: 0.2
 ;; Keywords: languages
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -21,40 +21,34 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
+
 ;; The main features of this mode are Minecraft mcfunction syntax
-;; highlighting and interprocess communication (IPC) with the
-;; Minecraft server.
-;;
-;; ;; Settings example:
+;; highlighting.
+
+;; Settings example
 ;; (require 'mcfunction-mode)
-;; ;; Your server.jar location.
-;; (setq mcfunction-server-directory "~/.minecraft/server/")
-;; ;; This is a default value.
-;; (setq mcfunction-server-command "java -Xms1024M -Xmx1024M -jar server.jar nogui")
-;;
-;; (add-to-list 'auto-mode-alist '("\\.mcfunction\\'" . mcfunction-mode))
-;;
+
 ;; Default keybindings:
-;;   C-c C-c  mcfunction-send-string
+;;   C-c C-c  mcfunction-execute-command
 ;;   C-c C-e  mcfunction-execute-command-at-point
-;;   C-c C-k  mcfunction-stop-server
-;;   C-c C-r  mcfunction-start-server
-;;
-;; TODO: Scanning syntax from the server's help results, It's to use
-;; for highlighting and completion.
+
+;; See also:
+;; https://github.com/rasensuihei/mcfunction-mode
 
 ;;; Code:
 (require 'font-lock)
+(require 'mcrcon)
 
 (defgroup mcfunction nil
   "Major mode for editing minecraft mcfunction."
   :group 'languages)
 
-(defface mcfunction-illegal-syntax
-  '((t (:background "dark red" :underline t)))
+(defface mcfunction-syntax-warning
+  '((((class color) (background light)) (:background "IndianRed1"))
+    (((class color) (background dark)) (:background "firebrick4")))
   "Illegal space face"
   :group 'mcfunction)
-(defvar mcfunction-illegal-syntax 'mcfunction-illegal-syntax)
+(defvar mcfunction-syntax-warning 'mcfunction-syntax-warning)
 
 (defvar mcfunction--font-lock-keywords
   (list
@@ -63,42 +57,37 @@
      (1 font-lock-keyword-face))
    ;; Command
    '("\\(^\\|run \\)\\([a-z]+\\)\\>"
-         (1 font-lock-keyword-face)
-         (2 font-lock-builtin-face))
-   ;; Selector
+     (1 font-lock-keyword-face)
+     (2 font-lock-builtin-face))
+   ;; Syntax warning
+   '("\\( \s+\\|^\s+\\|\s+$\\|@[aeprs]\s+\\[\\)"
+     (1 mcfunction-syntax-warning))
+   ;; Selector variable
    '("\\(@[aeprs]\\)"
-     (1 font-lock-type-face))
-   ;; '("\\(@[aeprs]\\)\\[\\([^]]*\\)\\]"
-   ;;   (1 font-lock-type-face t)
-   ;;   (2 font-lock-doc-face t))
+     (1 font-lock-variable-name-face))
+   '("\\(@[aeprs]\\)\\[\\([^]]*\\)\\]"
+     (1 font-lock-variable-name-face t)
+     (2 font-lock-constant-face t))
+   ;; Selector arguments
+   '("\\([a-zA-Z0-9_]+\\)\s*="
+     (1 font-lock-builtin-face t))
+   '("\\([,=:]\\)"
+     (1 font-lock-builtin-face t))
+     ;; (2 default t))
    ;; Negation char
    '("=\\(!\\)"
-     (1 font-lock-negation-char-face))
-   '("\\( ,\\|, \\| [ ]+\\|^ +\\)"
-     (1 mcfunction-illegal-syntax))
+     (1 font-lock-negation-char-face t))
    ;; String
    '("\"\\(\\\\.\\|[^\"]\\)*\""
-     (1 font-lock-string-face))
+     (1 font-lock-string-face t))
    ;; Line comment
    '("^\\(#.*\\)$"
      (1 font-lock-comment-face t))
    ))
 
-(defvar mcfunction-display-server-messages t "Display received server messages on minibuffer.")
-
-(defvar mcfunction-server-command "java -Xms1024M -Xmx1024M -jar server.jar nogui")
-
-(defvar mcfunction-server-directory ".")
-
-(defvar mcfunction-server-working-directory nil "When this is nil, Working directory is mcfunction-server-directory.")
-
-(defconst mcfunction-server-buffer-name "*Minecraft-Server*")
-
 (defvar mcfunction-mode-prefix-map
   (let ((map (make-sparse-keymap)))
-    (define-key map "\C-r" 'mcfunction-start-server)
-    (define-key map "\C-k" 'mcfunction-stop-server)
-    (define-key map "\C-c" 'mcfunction-send-string)
+    (define-key map "\C-c" 'mcfunction-execute-command)
     (define-key map "\C-e" 'mcfunction-execute-command-at-point)
     map))
 
@@ -110,9 +99,15 @@
 (defvar mcfunction-mode-hook nil
   "This hook is run when mcfunction mode starts.")
 
-(defvar mcfunction--server-state nil "This variable represents the state of the server.  Value is nil, 'starting', 'ready' or 'finishing'.")
+(defvar mcfunction-mode-syntax-table
+  (let ((table (make-syntax-table)))
+    ;; (modify-syntax-entry ?# "<" table)
+    ;; (modify-syntax-entry ?\r ">" table)
+    ;; (modify-syntax-entry ?\n ">" table)
+    table))
 
-(defvar mcfunction--server-message-buffer nil "Buffered server messages.")
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.mcfunction\\'" . mcfunction-mode))
 
 ;;;###autoload
 (define-derived-mode mcfunction-mode prog-mode "mcfunction"
@@ -122,6 +117,28 @@
               (list mcfunction--font-lock-keywords nil nil nil nil))
   (setq-local comment-start "#")
   (setq-local comment-end ""))
+
+(defalias 'mcfunction-execute-command 'mcrcon-execute-command
+  "Execute Minecraft command STR.  HANDLER is a function for server response handle.")
+
+(defalias 'mcfunction-execute-command-at-point 'mcrcon-execute-command-at-point
+  "Execute Minecraft command at point.")
+
+;;; --- Deprecated ---
+
+(defvar mcfunction-display-server-messages t "Display received server messages on minibuffer.")
+
+(defvar mcfunction-server-command "java -Xms1024M -Xmx1024M -jar server.jar nogui")
+
+(defvar mcfunction-server-directory ".")
+
+(defvar mcfunction-server-working-directory nil "When this is nil, Working directory is mcfunction-server-directory.")
+
+(defconst mcfunction-server-buffer-name "*Minecraft-Server*")
+
+(defvar mcfunction--server-state nil "This variable represents the state of the server.  Value is nil, 'starting', 'ready' or 'finishing'.")
+
+(defvar mcfunction--server-message-buffer nil "Buffered server messages.")
 
 (defun mcfunction--server-ready ()
   "Return server is completely ready."
@@ -167,8 +184,12 @@
           (princ fmt-msg))
         (with-current-buffer mcfunction-server-buffer-name
           (goto-char (point-max))
-          (insert msg)
+          ;; (if my-out
+          ;;     (insert msg)
+          (if (not (string-match "Summoned" msg))
+              (insert msg))
           (goto-char (point-max))))))
+
 
 (defun mcfunction-send-string (str)
   "Send STR to minecraft server."
@@ -178,10 +199,10 @@
       (when (string-equal str "stop")
         (setq mcfunction--server-state 'finishing))
       (setq mcfunction--server-message-buffer nil)
-      (with-current-buffer mcfunction-server-buffer-name
-        (goto-char (point-max))
-        (insert (concat ">> " str "\n"))
-        (goto-char (point-max)))
+      ;; (with-current-buffer mcfunction-server-buffer-name
+      ;;   (goto-char (point-max))
+      ;;   (insert (concat ">> " str "\n"))
+      ;;   (goto-char (point-max)))
       (process-send-string "mcserver" (concat str "\n")))))
 
 (defun mcfunction-start-server ()
@@ -189,7 +210,7 @@
   (interactive)
   (setq mcfunction--server-message-buffer nil)
   (if (processp (get-process "mcserver"))
-      (princ "Minecraft server is already running.")
+      (message "Minecraft server is already running.")
     ;; else
     (let ((default-directory (or mcfunction-server-working-directory
                                  mcfunction-server-directory))
@@ -200,7 +221,9 @@
                      (split-string mcfunction-server-command " +")))
       (setq server (get-process "mcserver"))
       (set-process-filter server 'mcfunction--server-filter)
-      (set-process-sentinel server 'mcfunction-server-sentinel))))
+      (set-process-sentinel server 'mcfunction-server-sentinel)
+      (message "Starting Minecraft server..."))))
+
 
 (defun mcfunction-server-sentinel (process signal)
   "Minecraft server process sentinel function.  PROCESS is server process.  SIGNAL is server signal(hope \"finished\\n\")."
