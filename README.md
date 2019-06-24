@@ -73,11 +73,12 @@ rcon.password=PASSWORD
 `mceval` must be nested.  If you call consecutively in a loop, the Minecraft RCON server will disconnect the client.
 
 ## Changelog
+### 0.2.1
+* Fixed: `mcfunction-execute-command-at-point' is duplicated.
 ### 0.2
 * Minecraft RCON client (mcrcon.el) supported.
 * The IPC server communication feature has been deprecated.
 * More colorful highlights.
-
 ### 0.1
 * First commit.
 
