@@ -4,7 +4,7 @@
 
 ;; Author: rasensuihei <rasensuihei@gmail.com>
 ;; URL: https://github.com/rasensuihei/mcfunction-mode
-;; Version: 0.2
+;; Version: 0.2.1
 ;; Keywords: languages
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -240,7 +240,7 @@
   (when (mcfunction--server-ready)
     (mcfunction-send-string "stop")))
 
-(defun mcfunction-execute-command-at-point ()
+(defun mcfunction-server-execute-command-at-point ()
   "Execute a command at point."
   (interactive)
   (if (mcfunction--server-ready)
