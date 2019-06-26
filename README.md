@@ -1,30 +1,34 @@
-# mcfunction-mode
+# mcf-mode - Emacs major mode for editing Minecraft mcfunction
 
 ![Screenshot](ss00.png)
 
-Emacs major mode for editing Minecraft mcfunction.
-
-The main features of this mode are Minecraft mcfunction syntax highlighting.
+## The main features of mcf
+* Syntax highlighting Minecraft mcfunction.
+* Communicate with Minecraft RCON server.
 
 **As it is currently under development, there can be significant changes.**
 
 ## Setting example
 
 ~~~elisp
-(require 'mcfunction-mode)
+(require 'mcf-mode)
 ~~~
 
 ## Default key bindings
-* `C-c C-c` `mcfunction-execute-command`
-* `C-c C-e` `mcfunction-execute-command-at-point`
+* `C-c C-c  mcf-execute`
+* `C-c C-e  mcf-execute-at-point`
 
 ---
 
-# mcrcon.el
+## Commucate with Minecraft RCON 
 
-mcrcon.el is software to communicate with Minecraft RCON server.
+RCON is an official network protocol for communicating with Minecraft.
+You can send cool commands to Minecraft and receive cool responses.
 
 *Warning: Minecraft RCON is not thread safe before 1.14.3-pre2.*
+
+* `M-x mcf-rcon` to connect to Minecraft RCON server.
+* `M-x mcf-rcon-disconnect` to disconnect from Minecraft RCON server.
 
 ## Setup RCON server
 
@@ -38,41 +42,40 @@ rcon.password=PASSWORD
 ## Settings example
 
 ~~~elisp
-(require 'mcrcon)
-(setq mcrcon-password "PASSWORD")
-
-;; Another settings.
+;; RCON settings.
 (setq 
+ ;; If you want to write a password to your emacs settings file, just write.
+ mcf-rcon-password "PASSWORD"
  ;; Default host address.
- mcrcon-address "localhost"
+ mcf-rcon-address "localhost"
  ;; Default port number.
- mcrcon-port 25575
+ mcf-rcon-port 25575
  ;; Describe packet information.
- mcrcon-print-packet-infomation t)
+ mcf-rcon-print-packet-information t)
 ~~~
 
-## Usage
-
-* `M-x mcrcon` to connect to Minecraft RCON server.
-* `M-x mcrcon-disconnect` to disconnect from Minecraft RCON server.
-
-### Minecraft command macro `mceval`
+### Minecraft command macro `mcf-eval`
 
 ~~~ elisp
-(mceval "help help")
+(mcf-eval "help help")
 
-(mceval "list" (payload)
+(mcf-eval "list" (payload)
   (string-match "There are \\([0-9]+\\) of a max 20 players online" payload)
   (when (equal (match-string 1 payload) "0")
     (message "Nobody is here :(")
-    (mceval "summon creeper 0 10 0 {CustomName:\"{\\\"text\\\":\\\"Player\\\"}\"}")))
+    (mcf-eval "summon creeper 0 10 0 {CustomName:\"{\\\"text\\\":\\\"Player\\\"}\"}")))
 ~~~
 
-`mceval` does not block processing, and BODY is evaluated when the server responds.
+`mcf-eval` does not block processing, and BODY is evaluated when the server responds.
 
-`mceval` must be nested.  If you call consecutively in a loop, the Minecraft RCON server will disconnect the client.
+`mcf-eval` must be nested.  If you call consecutively in a loop, the Minecraft RCON server will disconnect the client.
 
 ## Changelog
+### 0.2.2
+* Package name is mcf-mode, not mcfunction-mode.
+* Package prefixes are changed. mcfunction-* and mcrcon-* to mcf-*
+* Specified supported emacs version.
+* Fixed: Empty password is not working.
 ### 0.2.1
 * Fixed: `mcfunction-execute-command-at-point' is duplicated.
 ### 0.2
