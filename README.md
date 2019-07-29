@@ -71,6 +71,10 @@ rcon.password=PASSWORD
 `mcf-eval` must be nested.  If you call consecutively in a loop, the Minecraft RCON server will disconnect the client.
 
 ## Changelog
+### 0.2.3
+* Auto connect/Reconnect to RCON server when executes command.
+* RCON Command queue feature.
+* Fixed: RCON problem with 32-bit Emacs.
 ### 0.2.2
 * Package name is mcf-mode, not mcfunction-mode.
 * Package prefixes are changed. mcfunction-* and mcrcon-* to mcf-*
@@ -80,7 +84,7 @@ rcon.password=PASSWORD
 * Fixed: `mcfunction-execute-command-at-point' is duplicated.
 ### 0.2
 * Minecraft RCON client (mcrcon.el) supported.
-* The IPC server communication feature has been deprecated.
+* IPC feature has been deprecated.
 * More colorful highlights.
 ### 0.1
 * First commit.
@@ -88,5 +92,4 @@ rcon.password=PASSWORD
 ## TODO
 * Scanning syntax from the server's help results, It's to use for highlighting and completion.
 * datatag <=> sexp conversion.
-* Automatic reconnect when disconnected from server.
 * More hooks.

@@ -4,7 +4,7 @@
 
 ;; Author: rasensuihei <rasensuihei@gmail.com>
 ;; URL: https://github.com/rasensuihei/mcf-mode
-;; Version: 0.2.2
+;; Version: 0.2.3
 ;; Keywords: comm
 ;; Package-Requires: ((emacs "24.1"))
 
@@ -37,6 +37,8 @@
 (defvar mcf-rcon-password "" "RCON server password.")
 (defvar mcf-rcon-family 'ipv4 "Network family.")
 (defvar mcf-rcon-print-packet-information nil "Print packet information to RCON buffer.")
+(defvar mcf-rcon-auto-reconnect t "Reconnect automatically.")
+
 ;; Private constants.
 (defconst mcf-rcon--packet-header-spec
   '((:size u32r)
@@ -53,16 +55,18 @@
     (:body str (eval (- (bindat-get-field struct :size) 10)))
     (:terminator byte)
     (:terminator byte)))
-(defconst mcf-rcon--64bit-environment (> most-positive-fixnum (lsh 1 31)) "Value is 't' when 64-bit environment.")
+(defconst mcf-rcon--64bit-environment (< 0 (lsh 1 31)) "Value is 't' on 64-bit environment.")
 ;; Private variables.
-(defvar mcf-rcon--proc nil "RCON process.")
-(defvar mcf-rcon--proc-name "mcf-rcon")
+(defvar mcf-rcon--proc nil "RCON network process.")
+(defvar mcf-rcon--proc-name "mcf-rcon" "RCON network process name.")
 (defvar mcf-rcon--buffer-name "*RCON*" "RCON buffer name.")
 (defvar mcf-rcon--id-count 0 "Current packet id.")
-(defvar mcf-rcon--authorized nil "RCON is authorized when not nil.")
+(defvar mcf-rcon--authenticated nil "RCON is authenticated when not nil.")
 (defvar mcf-rcon--auth-timer nil "RCON auth timer.")
-(defvar mcf-rcon--response-handlers (make-hash-table :test 'eql) "Hashtable for server response.  Structure is ID : (COMMAND_STR HANDLER_FUNCTION).")
-;; (defvar mcf-rcon--packet-log nil "")
+;; (defvar mcf-rcon--response-handlers (make-hash-table :test 'eql) "Hashtable for server response.  Structure is ID : (COMMAND_STR HANDLER_FUNCTION).")
+(defvar mcf-rcon--command-queue nil "A first item will remeve when responded.")
+(defvar mcf-rcon--keep-packet-log nil "Collect packets For test.")
+(defvar mcf-rcon--raw-packets nil "Raw packet log For test.")
 
 ;;;###autoload
 (defun mcf-rcon ()
@@ -79,21 +83,33 @@
 (defun mcf-rcon-disconnect ()
   "Disconnect to/from the server."
   (interactive)
-  (when (timerp mcf-rcon--auth-timer)
-    (cancel-timer mcf-rcon--auth-timer))
-  (when (processp mcf-rcon--proc)
-    (delete-process mcf-rcon--proc))
-  (setq mcf-rcon--authorized nil
-        mcf-rcon--proc nil))
+  (mcf-rcon--clear))
 
-(defun mcf-rcon-execute-command (str &optional handler)
+(defun mcf-rcon-execute (str &optional handler)
   "Execute Minecraft command STR.  HANDLER is a function for server response handle."
+  (unless mcf-rcon--proc
+    (mcf-rcon))
+  (let ((empty (not mcf-rcon--command-queue)))
+    (mcf-rcon--queue-command str handler)
+    (when (and empty mcf-rcon--authenticated)
+      (mcf-rcon--execute-queued-command))))
+
+(defun mcf-rcon--execute-queued-command ()
+  "Execute first command in the queue."
   (mcf-rcon--check-status)
-  (let ((id (mcf-rcon--provide-id)))
-    (mcf-rcon--send-packet id 2 str)
+  (let* ((item (car mcf-rcon--command-queue))
+         (id (nth 0 item))
+         (body (nth 1 item)))
+    (mcf-rcon--send-packet id 2 body)
     (mcf-rcon--send-packet -2 0 "") ; Send a empty SERVERDATA_RESPONSE_VALUE packet.
-    (puthash id (cons str handler) mcf-rcon--response-handlers)
+    ;; (puthash id (cons body handler) mcf-rcon--response-handlers)
     id))
+
+(defun mcf-rcon--queue-command (str handler)
+  "Create queue item (id STR HANDLER) into the queue."
+  (setq mcf-rcon--command-queue
+        (append mcf-rcon--command-queue
+                (list (list (mcf-rcon--provide-id) str handler)))))
 
 (defun mcf-rcon--pre-pack-s32 (n)
   "Convert a signed integer to bindat's unsigned 32-bit integer.  N is a signed 29/61-bit integer."
@@ -109,7 +125,7 @@
         (logior (ash most-negative-fixnum -30) n))
     n))
 
-(defun mcf-rcon--log (str)
+(defun mcf-rcon--print (str)
   "Insert log STR to RCON buffer."
   (if (eq (current-buffer) (get-buffer mcf-rcon--buffer-name))
     (save-excursion
@@ -136,7 +152,7 @@
 
 (defun mcf-rcon--auth ()
   "Auth to the server."
-  (unless mcf-rcon--authorized
+  (unless mcf-rcon--authenticated
     (let ((password (if mcf-rcon-password mcf-rcon-password (read-passwd "RCON password: "))))
       (setq mcf-rcon--auth-timer
             (run-at-time
@@ -157,34 +173,31 @@
                                 (:type . ,(mcf-rcon--pre-pack-s32 type))
                                 (:body . ,body)
                                 (:terminator . 0)))))
+
+    (when mcf-rcon--keep-packet-log
+      (push (cons :send struct) mcf-rcon--raw-packets))
     (with-current-buffer mcf-rcon--buffer-name
       (process-send-string mcf-rcon--proc struct))
     (if mcf-rcon-print-packet-information
-        (mcf-rcon--log (format "[%s %s %s %s] =>\n" size id type body)))
+        (mcf-rcon--print (format "[%s %s %s %s] =>\n" size id type body)))
     id))
 
 (defun mcf-rcon--check-status ()
   "Check network status."
   (unless (processp mcf-rcon--proc)
     (error "RCON client is not running.  Try M-x mcf-rcon"))
-  (unless mcf-rcon--authorized
-    (error "RCON is not authorized")))
+  (unless mcf-rcon--authenticated
+    (error "RCON is not authenticated")))
 
 (defvar mcf-rcon--stream-buffer nil "Network stream buffer.  Value is a unibyte.")
 (defvar mcf-rcon--current-header nil "Processing packet's header alist.")
 (defvar mcf-rcon--body-list nil "Multiple-packet body list.  It's a second stream buffer.")
 (defvar mcf-rcon--last-response-id nil "Last read multiple-packet id.")
 
-(defun mcf-rcon--clear ()
-  "Clear variables."
-  (setq mcf-rcon--stream-buffer nil
-        mcf-rcon--current-header nil
-        mcf-rcon--body-list nil
-        mcf-rcon--last-response-id nil))
-
 (defun mcf-rcon--filter(_proc string)
   "RCON filter function. STRING is multibyte string."
-  ;; (push string mcf-rcon--packet-log)
+  (when mcf-rcon--keep-packet-log
+    (push (cons :received string) mcf-rcon--raw-packets))
   (mcf-rcon--append-buffer string)
   (let ((loop t))
     (while loop
@@ -208,26 +221,38 @@
   (let-alist header
     (cond
      ((= .id -1) ; Auth failed.
-      (setq mcf-rcon--authorized nil)
-      (mcf-rcon--log "RCON is not authorized."))
+      (setq mcf-rcon--authenticated nil)
+      (mcf-rcon--print "RCON is not authenticated."))
      ((= .id -2) ; End of RESPONSE_VALUE packet.
-      (let ((payload (mcf-rcon--concat-multiple-packets))
-            (command (gethash mcf-rcon--last-response-id mcf-rcon--response-handlers)))
-        (mcf-rcon--command-log (car command) payload)
-        (when (cdr command)
-          (funcall (cdr command) payload))
-        (remhash mcf-rcon--last-response-id mcf-rcon--response-handlers)))
+      (mcf-rcon--complete-response))
      ((= .type 3) ; SERVERDATA_AUTH
-      (setq mcf-rcon--authorized t))
+      (setq mcf-rcon--authenticated t))
      ((= .type 2) ; SERVERDATA_AUTH_RESPONSE
-      (setq mcf-rcon--authorized t))
+      (setq mcf-rcon--authenticated t)
+      (when mcf-rcon--command-queue
+        (mcf-rcon--execute-queued-command)))
      ((= .type 0) ; SERVERDATA_RESPONSE_VALUE
       (setq mcf-rcon--last-response-id .id)
       (push body mcf-rcon--body-list))
      (t (error (format "Unknown packet header: %s" header))))
     (when mcf-rcon-print-packet-information
-      (mcf-rcon--log
+      (mcf-rcon--print
        (format "[%s %s %s %s]\n" .size .id .type body)))))
+
+(defun mcf-rcon--complete-response()
+  "Complete a server response."
+  (let ((payload (mcf-rcon--concat-multiple-packets))
+        (item (pop mcf-rcon--command-queue)))
+    (let ((id (nth 0 item))
+          (command (nth 1 item))
+          (handler (nth 2 item)))
+      id ;; TODO
+      (mcf-rcon--command-log command payload)
+      (when handler
+        (funcall handler payload))))
+  ;; If queue is not empty, Execute next command.
+  (when mcf-rcon--command-queue
+    (mcf-rcon--execute-queued-command)))
 
 (defun mcf-rcon--concat-multiple-packets ()
   "Return a concatenated packet bodies."
@@ -239,7 +264,7 @@
 
 (defun mcf-rcon--command-log (command payload)
   "Insert executed COMMAND and result PAYLOAD to RCON buffer."
-  (mcf-rcon--log (concat command " => " payload "\n")))
+  (mcf-rcon--print (concat command " => " payload "\n")))
 
 (defun mcf-rcon--append-buffer (string)
   "Append STRING to stream buffer."
@@ -275,17 +300,36 @@
   (with-current-buffer mcf-rcon--buffer-name
     (goto-char (point-max))
     (insert (format "%s: %s" proc msg))
-    (when (or (string-match "^connection broken by remote peer" msg)
-              (string-match "^deleted" msg)
+    (when (and (string-match "^connection broken by remote peer" msg)
+               mcf-rcon-auto-reconnect)
+      (mcf-rcon--clear t)
+      (mcf-rcon))
+    (when (or (string-match "^deleted" msg)
               (string-match "^failed with code" msg))
-      (mcf-rcon-disconnect))))
+      (mcf-rcon--clear))))
 
 (defun mcf-rcon--provide-id ()
   "Provide RCON packet id."
-  (setq mcf-rcon--id-count (+ mcf-rcon--id-count 1))
-  (unless (integerp mcf-rcon--id-count)
-    (setq mcf-rcon--id-count 0))
+  (setq mcf-rcon--id-count
+        (if (= mcf-rcon--id-count most-positive-fixnum)
+            (+ mcf-rcon--id-count 0)
+          (+ mcf-rcon--id-count 1)))
   mcf-rcon--id-count)
+
+(defun mcf-rcon--clear (&optional keep-queue)
+  "Clear process and variables.  Keep queue if KEEP-QUEUE is t."
+  (when (timerp mcf-rcon--auth-timer)
+    (cancel-timer mcf-rcon--auth-timer))
+  (when (processp mcf-rcon--proc)
+    (delete-process mcf-rcon--proc))
+  (setq mcf-rcon--authenticated nil
+        mcf-rcon--proc nil
+        mcf-rcon--stream-buffer nil
+        mcf-rcon--current-header nil
+        mcf-rcon--body-list nil
+        mcf-rcon--last-response-id nil)
+  (unless keep-queue
+    (setq mcf-rcon--command-queue nil)))
 
 (provide 'mcf-rcon)
 ;;; mcf-rcon.el ends here
