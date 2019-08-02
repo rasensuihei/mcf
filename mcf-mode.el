@@ -75,7 +75,7 @@
      (1 font-lock-variable-name-face t)
      (2 font-lock-constant-face t))
    ;; Selector arguments
-   '("\\([a-zA-Z0-9_]+\\)\s*="
+   '("\\([a-zA-Z0-9_.+-]+\\)\s*="
      (1 font-lock-builtin-face t))
    '("\\([,=:]\\)"
      (1 font-lock-builtin-face t))
@@ -95,6 +95,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map "\C-c" 'mcf-execute)
     (define-key map "\C-e" 'mcf-execute-at-point)
+    (define-key map "\C-r" 'mcf-reload)
     map))
 
 (defvar mcf-mode-map
@@ -124,11 +125,14 @@
   (setq-local comment-start "#")
   (setq-local comment-end ""))
 
-(defun mcf-execute (str &optional handler)
-  "Execute Minecraft command STR.  HANDLER is a function for server response handle."
+(defun mcf-execute (str)
+  "Execute Minecraft command STR and display the result in the minibuffer."
   (interactive "MCommand: ")
-  (mcf-rcon-execute-command str handler)
-  t)
+  ;; (mcf-rcon-execute str handler)
+  (mcf-rcon-execute str (lambda (payload)
+                          (if (eq payload "")
+                              (message "Minecraft: <empty>")
+                            (message "Minecraft: %s" payload)))))
 
 (defun mcf-execute-at-point ()
   "Execute a command at point."
@@ -137,14 +141,19 @@
     (when (string-match "^[# ]*\\(.+\\)$" line)
       (mcf-execute (match-string 1 line)))))
 
+(defun mcf-reload ()
+  "Execute a reload command."
+  (interactive)
+  (mcf-execute "reload"))
+
 (defmacro mcf-eval (command &rest args)
   "(mcf-eval COMMAND ARGS...)
 
 Evaluate minecraft command with RCON server.  A First argument must be payload variable name.  (mcf-eval \"COMMAND\" (PAYLOAD) BODY...)"
   (declare (indent defun) (debug args))
   (if args
-      `(mcf-rcon-execute-command ,command (lambda (x) (let ((,(caar args) x)) ,@(cdr args))))
-    `(mcf-rcon-execute-command ,command)))
+      `(mcf-rcon-execute ,command (lambda (x) (let ((,(caar args) x)) ,@(cdr args))))
+    `(mcf-rcon-execute ,command)))
 
 (provide 'mcf-mode)
 ;;; mcf-mode.el ends here

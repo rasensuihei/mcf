@@ -146,6 +146,7 @@
            :buffer mcf-rcon--buffer-name
            :address mcf-rcon-address
            :service mcf-rcon-port
+           :noquery t
            :nowait t
            :filter 'mcf-rcon--filter
            :sentinel 'mcf-rcon--sentinel))))

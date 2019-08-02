@@ -17,6 +17,7 @@
 ## Default key bindings
 * `C-c C-c  mcf-execute`
 * `C-c C-e  mcf-execute-at-point`
+* `C-c C-r  mcf-reload`
 
 ---
 
@@ -68,9 +69,12 @@ rcon.password=PASSWORD
 
 `mcf-eval` does not block processing, and BODY is evaluated when the server responds.
 
-`mcf-eval` must be nested.  If you call consecutively in a loop, the Minecraft RCON server will disconnect the client.
-
 ## Changelog
+### 0.2.4
+* A network process never querying before exit Emacs.
+* Highlights valid scoreboard name.
+* Display command execution result.
+* Added reload command.
 ### 0.2.3
 * Auto connect/Reconnect to RCON server when executes command.
 * RCON Command queue feature.
