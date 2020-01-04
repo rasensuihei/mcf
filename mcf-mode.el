@@ -56,6 +56,7 @@
   :group 'mcf)
 (defvar mcf-syntax-warning 'mcf-syntax-warning)
 
+;; See https://www.emacswiki.org/emacs/FontLockKeywords for how to define
 (defvar mcf--font-lock-keywords)
 (setq mcf--font-lock-keywords
       (list
@@ -72,7 +73,7 @@
        ;; Selector variable
        '("\\(@[aeprs]\\)"
          (1 font-lock-variable-name-face))
-       '("\\(@[aeprs]\\)\\[\\([^]]*\\)\\]"
+       '("\\(@[aeprs]\\)\\(\\[.*?\\]\\)\\s-"
          (1 font-lock-variable-name-face t)
          (2 font-lock-constant-face t))
        ;; Selector arguments
@@ -85,7 +86,7 @@
          (1 font-lock-negation-char-face t))
        ;; String
        '("\"\\(\\\\.\\|[^\"]\\)*\""
-         (1 font-lock-string-face t))
+         (0 font-lock-string-face t))
        ;; Line comment
        '("^\\(#.*\\)$"
          (1 font-lock-comment-face t))
