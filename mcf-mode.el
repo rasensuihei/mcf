@@ -67,6 +67,9 @@
        '("\\(^\\|run \\)\\([a-z]+\\)\\>"
          (1 font-lock-keyword-face)
          (2 font-lock-builtin-face))
+       '("\\(function\\) \\([a-z0-9_.+-:]+\\)\\>"
+         (1 font-lock-keyword-face)
+         (2 font-lock-variable-name-face))
        ;; Syntax warning
        '("\\( \s+\\|^\s+\\|\s+$\\|@[aeprs]\s+\\[\\)"
          (1 mcf-syntax-warning))
@@ -82,8 +85,10 @@
        '("\\([,=:]\\)"
          (1 font-lock-builtin-face t))
        ;; Numbers
-       '("\\([0-9]+\\(\\.[0-9]+\\)?\\)"
+       '("\\<\\([0-9]+\\(\\.[0-9]+\\)?\\)[bsilfd]?\\>"
          (1 font-lock-constant-face t))
+       '("\\([\\^\\~]\\)\\([0-9]\\|\\s-\\)" (1 font-lock-builtin-face t))
+       '("\\.\\." (0 font-lock-builtin-face t))
        ;; Negation char
        '("=\\(!\\)"
          (1 font-lock-negation-char-face t))
