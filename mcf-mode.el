@@ -75,12 +75,15 @@
          (1 font-lock-variable-name-face))
        '("\\(@[aeprs]\\)\\(\\[.*?\\]\\)\\s-"
          (1 font-lock-variable-name-face t)
-         (2 font-lock-constant-face t))
+         (2 font-lock-type-face t))
        ;; Selector arguments
-       '("\\([a-zA-Z0-9_.+-]+\\)\s*="
+       '("\\([a-zA-Z][a-zA-Z0-9_.+-]+\\)\s*="
          (1 font-lock-builtin-face t))
        '("\\([,=:]\\)"
          (1 font-lock-builtin-face t))
+       ;; Numbers
+       '("\\([0-9]+\\(\\.[0-9]+\\)?\\)"
+         (1 font-lock-constant-face t))
        ;; Negation char
        '("=\\(!\\)"
          (1 font-lock-negation-char-face t))
