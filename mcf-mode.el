@@ -56,40 +56,49 @@
   :group 'mcf)
 (defvar mcf-syntax-warning 'mcf-syntax-warning)
 
-(defvar mcf--font-lock-keywords
-  (list
-   ;; Execute
-   '("\\<\\(execute\\)\\>"
-     (1 font-lock-keyword-face))
-   ;; Command
-   '("\\(^\\|run \\)\\([a-z]+\\)\\>"
-     (1 font-lock-keyword-face)
-     (2 font-lock-builtin-face))
-   ;; Syntax warning
-   '("\\( \s+\\|^\s+\\|\s+$\\|@[aeprs]\s+\\[\\)"
-     (1 mcf-syntax-warning))
-   ;; Selector variable
-   '("\\(@[aeprs]\\)"
-     (1 font-lock-variable-name-face))
-   '("\\(@[aeprs]\\)\\[\\([^]]*\\)\\]"
-     (1 font-lock-variable-name-face t)
-     (2 font-lock-constant-face t))
-   ;; Selector arguments
-   '("\\([a-zA-Z0-9_.+-]+\\)\s*="
-     (1 font-lock-builtin-face t))
-   '("\\([,=:]\\)"
-     (1 font-lock-builtin-face t))
-     ;; (2 default t))
-   ;; Negation char
-   '("=\\(!\\)"
-     (1 font-lock-negation-char-face t))
-   ;; String
-   '("\"\\(\\\\.\\|[^\"]\\)*\""
-     (1 font-lock-string-face t))
-   ;; Line comment
-   '("^\\(#.*\\)$"
-     (1 font-lock-comment-face t))
-   ))
+;; See https://www.emacswiki.org/emacs/FontLockKeywords for how to define
+(defvar mcf--font-lock-keywords)
+(setq mcf--font-lock-keywords
+      (list
+       ;; Execute
+       '("\\<\\(execute\\)\\>"
+         (1 font-lock-keyword-face))
+       ;; Command
+       '("\\(^\\|run \\)\\([a-z]+\\)\\>"
+         (1 font-lock-keyword-face)
+         (2 font-lock-builtin-face))
+       '("\\(function\\) \\([a-z0-9_.+-:]+\\)\\>"
+         (1 font-lock-keyword-face)
+         (2 font-lock-variable-name-face))
+       ;; Syntax warning
+       '("\\( \s+\\|^\s+\\|\s+$\\|@[aeprs]\s+\\[\\)"
+         (1 mcf-syntax-warning))
+       ;; Selector variable
+       '("\\(@[aeprs]\\)"
+         (1 font-lock-variable-name-face))
+       '("\\(@[aeprs]\\)\\(\\[.*?\\]\\)\\s-"
+         (1 font-lock-variable-name-face t)
+         (2 font-lock-type-face t))
+       ;; Selector arguments
+       '("\\([a-zA-Z][a-zA-Z0-9_.+-]+\\)\s*="
+         (1 font-lock-builtin-face t))
+       '("\\([,=:]\\)"
+         (1 font-lock-builtin-face t))
+       ;; Numbers
+       '("\\<\\([0-9]+\\(\\.[0-9]+\\)?\\)[bsilfd]?\\>"
+         (1 font-lock-constant-face t))
+       '("\\([\\^\\~]\\)\\([0-9]\\|\\s-\\)" (1 font-lock-builtin-face t))
+       '("\\.\\." (0 font-lock-builtin-face t))
+       ;; Negation char
+       '("=\\(!\\)"
+         (1 font-lock-negation-char-face t))
+       ;; String
+       '("\"\\(\\\\.\\|[^\"]\\)*\""
+         (0 font-lock-string-face t))
+       ;; Line comment
+       '("^\\(#.*\\)$"
+         (1 font-lock-comment-face t))
+       ))
 
 (defvar mcf-mode-prefix-map
   (let ((map (make-sparse-keymap)))
