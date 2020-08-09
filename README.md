@@ -8,7 +8,7 @@
 
 **As it is currently under development, there can be significant changes.**
 ## Installation
-Move mcf-mode.el and mcf-mode.el to emacs' load path (e.g. /usr/share/emacs/26.3/lisp/progmodes)
+Move mcf-mode.el and mcf-mode.el to emacs' load path (e.g. /usr/share/emacs/26.3/lisp/progmodes).  
 Use `M-x load-library` to load it and `M-x mcf-mode` to use the mode.
 ## Setting example
 
