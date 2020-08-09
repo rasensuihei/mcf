@@ -9,12 +9,11 @@
 **As it is currently under development, there can be significant changes.**
 ## Installation
 Move mcf-mode.el and mcf-mode.el to emacs' load path (e.g. /usr/share/emacs/26.3/lisp/progmodes).  
-Use `M-x load-library` to load it and `M-x mcf-mode` to use the mode.
-## Setting example
-
+Use `M-x load-library` to load it and `M-x mcf-mode` to use the mode, or add the line :
 ~~~elisp
 (require 'mcf-mode)
 ~~~
+to .emacs.
 
 ## Default key bindings
 * `C-c C-c  mcf-execute`
