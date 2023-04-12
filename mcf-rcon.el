@@ -144,7 +144,7 @@
            :name mcf-rcon--proc-name
            :family mcf-rcon-family
            :buffer mcf-rcon--buffer-name
-           :address mcf-rcon-address
+           :host mcf-rcon-address
            :service mcf-rcon-port
            :noquery t
            :nowait t
